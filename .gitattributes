@@ -1,8 +1,8 @@
-* text=auto
-*.bat text eol=crlf
-*.ps1 text eol=crlf
-*.vbs text eol=crlf
-*.txt text eol=crlf
-*.user.js text eol=lf
-*.md text eol=lf
+# store Windows files byte-for-byte (CRLF, Shift-JIS .bat/.vbs) so raw downloads are exact
+*.bat -text
+*.ps1 -text
+*.vbs -text
+*.txt -text
 *.pdf binary
+*.js text eol=lf
+*.md text eol=lf
