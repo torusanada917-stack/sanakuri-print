@@ -1,0 +1,20 @@
+# 自動更新で C:\sanakuri に配るファイル（1行1ファイル）。config.txt と SumatraPDF.exe は含めない
+watcher.ps1
+watcher.vbs
+update.ps1
+config.default.txt
+setup.ps1
+setup.bat
+setup_auto.bat
+start_watcher.ps1
+start_watcher.bat
+get_sumatra.ps1
+get_sumatra.bat
+test_print_kpdf.bat
+test_a5.pdf
+list_printers_file.bat
+allow_digisma_downloads.bat
+check_update.bat
+uninstall.bat
+install.ps1
+README.txt

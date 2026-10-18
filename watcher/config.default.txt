@@ -1,0 +1,35 @@
+﻿# さなくり 会計印刷 設定  （行頭 # はコメント）
+# 変更後はトレイアイコン右クリック→終了 → start_watcher.bat をダブルクリックで再起動
+# このファイル(config.txt)は自動更新で上書きされません（config.default.txt が最新のひな形）
+
+# プリンター名（Windowsの「プリンターとスキャナー」に出る名前そのまま）
+# 空欄なら「通常使うプリンター」に出す。 list_printers.bat で一覧を確認できます
+PRINTER=OKI B432(A5)
+
+# 用紙サイズ（A5 / A4 / B5 など）
+PAPER=A5
+
+# 用紙の番号指定（通常は空欄でOK。PAPER から自動で決める。A4=9 A5=11 B5=13）
+PAPERKIND=
+
+# 給紙トレイ（空欄=プリンター任せ。トレイ番号 1,2.. や名前。用紙サイズで自動選択されるなら空欄のまま）
+BIN=
+
+# 拡大縮小（shrink=大きい時だけ縮小 / fit=用紙に合わせる / noscale=等倍）
+SCALE=shrink
+
+# ダウンロードフォルダ（空欄=Windowsの既定のダウンロードフォルダ。Chromeで保存先を変えている場合のみ指定）
+DOWNLOADS=
+
+# 監視するファイル名の先頭（会計 sanakuri_kaikei_ と 予約票 sanakuri_yoyaku_ の両方に一致させるため sanakuri_）
+PREFIX=sanakuri_
+
+# 印刷済みPDFを printed フォルダに残す日数（0=削除しない）
+KEEP_DAYS=60
+
+# ---- 自動更新 ----
+# 更新元（GitHub の watcher フォルダ）。院内共有フォルダにする場合は  \\192.168.110.21\共有名\sanakuri_dist\  のように書く。off で停止
+UPDATE_SOURCE=https://raw.githubusercontent.com/torusanada917-stack/sanakuri-print/main/watcher/
+
+# 起動時に加えて、何時間ごとに更新を確認するか
+UPDATE_HOURS=6

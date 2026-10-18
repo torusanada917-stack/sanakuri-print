@@ -1,0 +1,9 @@
+# per-PC / runtime files never belong in the repo
+log.txt
+setup_log.txt
+printers.txt
+config.txt
+SumatraPDF.exe
+printed/
+failed/
+_update/
