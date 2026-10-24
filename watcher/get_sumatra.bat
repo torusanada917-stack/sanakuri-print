@@ -1,3 +1,3 @@
 @echo off
 cd /d "%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0get_sumatra.ps1"
+wscript "%~dp0elevate.vbs" "%~dp0get_sumatra.ps1"

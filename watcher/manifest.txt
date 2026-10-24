@@ -3,11 +3,12 @@ watcher.ps1
 watcher.vbs
 update.ps1
 config.default.txt
+elevate.vbs
 setup.ps1
 setup.bat
 setup_auto.bat
-start_watcher.ps1
 start_watcher.bat
+restart_watcher.bat
 get_sumatra.ps1
 get_sumatra.bat
 test_print_kpdf.bat

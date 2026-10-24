@@ -1,17 +1,19 @@
 ﻿# ============================================================
-#  さなくり 無音印刷 watcher  v1.5  (2026-10-19)
+#  さなくり 無音印刷 watcher  v1.6  (2026-10-24)
 #  ダウンロードフォルダに sanakuri_kaikei_*.pdf / *.kpdf が来たら
 #  SumatraPDF で A5 印刷し、printed\ へ移動する。
 #  タスクトレイに常駐（右クリックで終了・ログ表示）。
+#  同じフォルダに update.flag / restart.flag を置くと、印刷待ちが無い時に 更新確認 / 再起動 する。
 #  設定は同じフォルダの config.txt。
 # ============================================================
 $ErrorActionPreference = 'Stop'
 $Base = Split-Path -Parent $MyInvocation.MyCommand.Path
-$WatcherVersion = '1.5'
+$WatcherVersion = '1.6'
 
 # ---- 二重起動防止 ----
 $mutex = New-Object System.Threading.Mutex($false, 'Local\SanakuriKaikeiWatcher')
 if (-not $mutex.WaitOne(0)) { exit }
+foreach ($fl in 'update.flag', 'restart.flag') { Remove-Item (Join-Path $Base $fl) -Force -ErrorAction SilentlyContinue }
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -161,10 +163,18 @@ function Scan() {
         Notify '会計印刷に失敗しました' "$($f.Name)`nfailed フォルダに移動しました。プリンターの電源・用紙を確認してください。" 'Error'
       }
     }
-    # 定期的に更新を確認（印刷待ちが無い時だけ）。更新があれば再起動
-    if ($files.Count -eq 0 -and (Get-Date) -gt $script:nextUpdateCheck) {
-      $script:nextUpdateCheck = (Get-Date).AddHours($updHours)
-      if (Run-Update) { $script:restartRequested = $true; $script:timer.Stop(); $tray.Visible = $false; [System.Windows.Forms.Application]::Exit(); return }
+    # 手動の合図（update.flag / restart.flag）と、定期的な更新確認（どちらも印刷待ちが無い時だけ）。更新があれば再起動
+    if ($files.Count -eq 0) {
+      $uf = Join-Path $Base 'update.flag'; $rf = Join-Path $Base 'restart.flag'
+      $wantUpdate = Test-Path $uf; $wantRestart = Test-Path $rf
+      if ($wantUpdate)  { Remove-Item $uf -Force -ErrorAction SilentlyContinue }
+      if ($wantRestart) { Remove-Item $rf -Force -ErrorAction SilentlyContinue }
+      if ($wantUpdate -or (Get-Date) -gt $script:nextUpdateCheck) {
+        $script:nextUpdateCheck = (Get-Date).AddHours($updHours)
+        if (Run-Update) { $wantRestart = $true }
+        elseif ($wantUpdate) { Notify 'さなくり無音印刷' ('更新はありません（v' + $WatcherVersion + '）') 'Info' }
+      }
+      if ($wantRestart) { Log "再起動します"; $script:restartRequested = $true; $script:timer.Stop(); $tray.Visible = $false; [System.Windows.Forms.Application]::Exit(); return }
     }
     # 1日1回、古い printed を削除
     if ((Get-Date) - $script:lastCleanup -gt [TimeSpan]::FromHours(24)) {
@@ -189,5 +199,5 @@ $script:timer.Start()
 Scan
 [System.Windows.Forms.Application]::Run()
 $tray.Dispose()
-if ($script:restartRequested) { Log "更新を適用したので再起動します"; Restart-Self; exit }
+if ($script:restartRequested) { Restart-Self; exit }
 $mutex.ReleaseMutex() | Out-Null
