@@ -10,6 +10,7 @@
 param([string]$Base = 'C:\sanakuri')
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
+try { Set-ExecutionPolicy Bypass -Scope Process -Force } catch {}   # この窓の中だけ .ps1 の実行を許可
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 $Source = 'https://raw.githubusercontent.com/torusanada917-stack/sanakuri-print/main/watcher/'
 New-Item -ItemType Directory -Force -Path $Base | Out-Null
@@ -32,11 +33,11 @@ if (-not (Test-Path (Join-Path $Base 'SumatraPDF.exe'))) {
 if (-not (Test-Path (Join-Path $Base 'SumatraPDF.exe'))) { L "!! SumatraPDF.exe を取得できませんでした（詳細: setup_log.txt）。get_sumatra.bat をもう一度実行してください"; Read-Host 'Enter で閉じる'; return }
 L "  -> OK"
 
-L "[3/3] セットアップ（Chrome設定・スタートアップ登録・常駐起動）"
+L "[3/3] セットアップ（Chrome設定・自動起動の登録・常駐起動）"
 & (Join-Path $Base 'setup.ps1') -Auto
 Start-Sleep 2
 L "完了。タスクトレイ（画面右下 ^）にオレンジのアイコンが出ていれば稼働中です。"
-L "次は Chrome に Tampermonkey を入れて、以下のURLを開いてスクリプトをインストールしてください（README 手順5）"
+L "次は Chrome に Tampermonkey を入れて、以下のURLを開いてスクリプトをインストールしてください（README 手順4）"
 L "  https://raw.githubusercontent.com/torusanada917-stack/sanakuri-print/main/sanakuri_kaikei.user.js"
 L "  https://raw.githubusercontent.com/torusanada917-stack/sanakuri-print/main/sanakuri_digisma.user.js"
 try { Start-Process 'https://github.com/torusanada917-stack/sanakuri-print#readme' } catch {}
