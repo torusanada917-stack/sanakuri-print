@@ -1,5 +1,5 @@
 ﻿# ============================================================
-#  さなくり 無音印刷 watcher  v1.6  (2026-10-24)
+#  さなくり 無音印刷 watcher  v1.7  (2026-10-26)
 #  ダウンロードフォルダに sanakuri_kaikei_*.pdf / *.kpdf が来たら
 #  SumatraPDF で A5 印刷し、printed\ へ移動する。
 #  タスクトレイに常駐（右クリックで終了・ログ表示）。
@@ -8,7 +8,7 @@
 # ============================================================
 $ErrorActionPreference = 'Stop'
 $Base = Split-Path -Parent $MyInvocation.MyCommand.Path
-$WatcherVersion = '1.6'
+$WatcherVersion = '1.7'
 
 # ---- 二重起動防止 ----
 $mutex = New-Object System.Threading.Mutex($false, 'Local\SanakuriKaikeiWatcher')
@@ -119,12 +119,15 @@ function Print-File([string]$path) {
   $argList = @()
   if ($cfg.PRINTER) { $argList += @('-print-to', ('"' + $cfg.PRINTER + '"')) } else { $argList += '-print-to-default' }
   $argList += @('-print-settings', ('"' + ($settings -join ',') + '"'), '-silent', ('"' + $path + '"'))
+  $sw = [System.Diagnostics.Stopwatch]::StartNew()
   $p = Start-Process -FilePath $Sumatra -ArgumentList $argList -WindowStyle Hidden -PassThru
-  if (-not $p.WaitForExit(90000)) { try { $p.Kill() } catch {}; Log "印刷タイムアウト(90秒) → 強制終了"; return 999 }
+  if (-not $p.WaitForExit(90000)) { try { $p.Kill() } catch {}; Log "印刷タイムアウト(90秒) → 強制終了"; $script:lastPrintSec = 90; return 999 }
+  $script:lastPrintSec = [math]::Round($sw.Elapsed.TotalSeconds, 1)
   return $p.ExitCode
 }
 
 $script:busy = $false
+$script:lastPrintSec = 0
 $script:lastCleanup = [DateTime]::MinValue
 $script:printedNames = @{}   # 印刷済みだが移動待ちのファイル（二重印刷防止）
 function Move-WithRetry([string]$src, [string]$dst) {
@@ -149,12 +152,11 @@ function Scan() {
       }
       if (-not (Is-Ready $f.FullName)) { continue }
       if ($f.Length -lt 100) { continue }
-      Start-Sleep -Milliseconds 300
-      if ($f.Length -ne (Get-Item $f.FullName).Length) { continue }   # まだ書き込み中
+      $detectSec = [math]::Round(((Get-Date) - $f.CreationTime).TotalSeconds, 1)   # ファイルが置かれてから検知までの秒数
       $code = Print-File $f.FullName
       if ($code -eq 0) {
         $script:printedNames[$f.Name] = $true
-        Log "印刷OK  $($f.Name)"
+        Log "印刷OK  $($f.Name)  (検知 ${detectSec}s / 印刷送出 $($script:lastPrintSec)s)"
         if (Move-WithRetry $f.FullName (Join-Path $monthDir $f.Name)) { $script:printedNames.Remove($f.Name) }
         else { Log "移動待ち（ファイルが使用中）  $($f.Name)" }
       } else {
@@ -193,7 +195,7 @@ function Scan() {
 
 Log "起動 v$WatcherVersion  監視=$Downloads  printer=$printerLabel  paper=$($cfg.PAPER)"
 $script:timer = New-Object System.Windows.Forms.Timer
-$script:timer.Interval = 1000
+$script:timer.Interval = 250
 $script:timer.Add_Tick({ Scan })
 $script:timer.Start()
 Scan
