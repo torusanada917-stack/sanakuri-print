@@ -1,14 +1,15 @@
 ﻿# ============================================================
-#  さなくり 無音印刷 watcher  v1.7  (2026-10-26)
+#  さなくり 無音印刷 watcher  v1.8  (2026-10-26)
 #  ダウンロードフォルダに sanakuri_kaikei_*.pdf / *.kpdf が来たら
 #  SumatraPDF で A5 印刷し、printed\ へ移動する。
+#  会計PDF（元からA5）は SumatraPDF を通さず、プリンターへ PDF を直接送る（DIRECT_IP）。失敗時は SumatraPDF 方式に戻る。
 #  タスクトレイに常駐（右クリックで終了・ログ表示）。
 #  同じフォルダに update.flag / restart.flag を置くと、印刷待ちが無い時に 更新確認 / 再起動 する。
 #  設定は同じフォルダの config.txt。
 # ============================================================
 $ErrorActionPreference = 'Stop'
 $Base = Split-Path -Parent $MyInvocation.MyCommand.Path
-$WatcherVersion = '1.7'
+$WatcherVersion = '1.8'
 
 # ---- 二重起動防止 ----
 $mutex = New-Object System.Threading.Mutex($false, 'Local\SanakuriKaikeiWatcher')
@@ -20,7 +21,8 @@ Add-Type -AssemblyName System.Drawing
 
 # ---- 設定読込 ----
 $cfg = @{ PRINTER=''; PAPER='A5'; PAPERKIND=''; BIN=''; SCALE='shrink'; DOWNLOADS=''; PREFIX='sanakuri_kaikei_'; KEEP_DAYS='60'; SUMATRA='';
-          UPDATE_SOURCE='https://raw.githubusercontent.com/torusanada917-stack/sanakuri-print/main/watcher/'; UPDATE_HOURS='6' }
+          UPDATE_SOURCE='https://raw.githubusercontent.com/torusanada917-stack/sanakuri-print/main/watcher/'; UPDATE_HOURS='6';
+          DIRECT_IP='192.168.110.51'; DIRECT_PORT='9100'; DIRECT_PREFIX='sanakuri_kaikei_' }
 $cfgPath = Join-Path $Base 'config.txt'
 if (Test-Path $cfgPath) {
   Get-Content $cfgPath -Encoding UTF8 | ForEach-Object {
@@ -84,6 +86,8 @@ $menu = New-Object System.Windows.Forms.ContextMenuStrip
 $mi = $menu.Items.Add("さなくり無音印刷 v$WatcherVersion"); $mi.Enabled = $false
 $mi = $menu.Items.Add("監視中: $Downloads"); $mi.Enabled = $false
 $mi = $menu.Items.Add("プリンター: $printerLabel / 用紙: $($cfg.PAPER)"); $mi.Enabled = $false
+$directLabel = if ($cfg.DIRECT_IP -and $cfg.DIRECT_IP -notmatch '^(off|none|0)$') { "会計は直接送信 → $($cfg.DIRECT_IP):$($cfg.DIRECT_PORT)" } else { "直接送信: オフ" }
+$mi = $menu.Items.Add($directLabel); $mi.Enabled = $false
 $menu.Items.Add('-') | Out-Null
 $menu.Items.Add('印刷済みフォルダを開く', $null, { Start-Process explorer.exe $PrintedDir }) | Out-Null
 $menu.Items.Add('ログを開く', $null, { Start-Process notepad.exe (Join-Path $Base 'log.txt') }) | Out-Null
@@ -126,6 +130,36 @@ function Print-File([string]$path) {
   return $p.ExitCode
 }
 
+# ---- PDF をプリンターへ直接送る（PDF ダイレクト印刷対応機のみ。用紙はPDFのページサイズで決まる）----
+function Is-DirectTarget([string]$name) {
+  $ip = $cfg.DIRECT_IP
+  if (-not $ip -or $ip -match '^(off|none|0)$') { return $false }
+  foreach ($p in ($cfg.DIRECT_PREFIX -split ',')) { $p = $p.Trim(); if ($p -and $name.StartsWith($p)) { return $true } }
+  return $false
+}
+function Send-Direct([string]$path) {
+  $ip = $cfg.DIRECT_IP
+  $port = 9100; try { $port = [int]$cfg.DIRECT_PORT } catch {}
+  $sw = [System.Diagnostics.Stopwatch]::StartNew()
+  $c = $null
+  try {
+    $bytes = [System.IO.File]::ReadAllBytes($path)
+    if ($bytes.Length -lt 100) { throw "ファイルが小さすぎます" }
+    $c = New-Object System.Net.Sockets.TcpClient
+    $ar = $c.BeginConnect($ip, $port, $null, $null)
+    if (-not $ar.AsyncWaitHandle.WaitOne(3000)) { throw "接続タイムアウト ($ip`:$port)" }
+    $c.EndConnect($ar)
+    $c.SendTimeout = 30000
+    $st = $c.GetStream()
+    $st.Write($bytes, 0, $bytes.Length); $st.Flush(); $st.Close()
+    $script:lastPrintSec = [math]::Round($sw.Elapsed.TotalSeconds, 1)
+    return $true
+  } catch {
+    Log ("直接送信に失敗 → SumatraPDF方式で印刷します: " + $_.Exception.Message)
+    return $false
+  } finally { if ($c) { try { $c.Close() } catch {} } }
+}
+
 $script:busy = $false
 $script:lastPrintSec = 0
 $script:lastCleanup = [DateTime]::MinValue
@@ -153,10 +187,12 @@ function Scan() {
       if (-not (Is-Ready $f.FullName)) { continue }
       if ($f.Length -lt 100) { continue }
       $detectSec = [math]::Round(((Get-Date) - $f.CreationTime).TotalSeconds, 1)   # ファイルが置かれてから検知までの秒数
-      $code = Print-File $f.FullName
+      $how = 'SumatraPDF'
+      if ((Is-DirectTarget $f.Name) -and (Send-Direct $f.FullName)) { $code = 0; $how = '直接送信' }
+      else { $code = Print-File $f.FullName }
       if ($code -eq 0) {
         $script:printedNames[$f.Name] = $true
-        Log "印刷OK  $($f.Name)  (検知 ${detectSec}s / 印刷送出 $($script:lastPrintSec)s)"
+        Log "印刷OK  $($f.Name)  (検知 ${detectSec}s / 送出 $($script:lastPrintSec)s / $how)"
         if (Move-WithRetry $f.FullName (Join-Path $monthDir $f.Name)) { $script:printedNames.Remove($f.Name) }
         else { Log "移動待ち（ファイルが使用中）  $($f.Name)" }
       } else {
@@ -193,7 +229,7 @@ function Scan() {
   } finally { $script:busy = $false }
 }
 
-Log "起動 v$WatcherVersion  監視=$Downloads  printer=$printerLabel  paper=$($cfg.PAPER)"
+Log "起動 v$WatcherVersion  監視=$Downloads  printer=$printerLabel  paper=$($cfg.PAPER)  $directLabel"
 $script:timer = New-Object System.Windows.Forms.Timer
 $script:timer.Interval = 250
 $script:timer.Add_Tick({ Scan })

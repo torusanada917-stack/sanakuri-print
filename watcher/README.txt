@@ -1,4 +1,4 @@
-﻿さなくり 無音印刷（デジカル会計・デジスマ予約票） v1.7（2026-10-26）
+﻿さなくり 無音印刷（デジカル会計・デジスマ予約票） v1.8（2026-10-26）
 ================================================================
 最新の手順・ファイルは  https://github.com/torusanada917-stack/sanakuri-print
 
@@ -14,7 +14,9 @@
 
 ■ 仕組み
   Tampermonkey のスクリプト（デジカル用・デジスマ用）がPDFを sanakuri_….kpdf という名前でダウンロードフォルダに落とし、
-  常駐の watcher（タスクトレイのオレンジのアイコン）が SumatraPDF で「OKI B432(A5)」へ印刷して printed フォルダへ移動します。
+  常駐の watcher（タスクトレイのオレンジのアイコン）が印刷して printed フォルダへ移動します。
+  会計PDF（元からA5）は PDF をプリンターへ直接送信（速い）、予約票（B5）は SumatraPDF で A5 に縮小して「OKI B432(A5)」へ。
+  直接送信先は config.txt の DIRECT_IP（届かない時は自動で SumatraPDF 方式）。
 
 ■ 自動更新（手を入れるPCは0台）
   ・Tampermonkey のスクリプト：GitHub 上の新しい版を Tampermonkey が自動で取り込みます（1日1回確認。手動なら Tampermonkey アイコン→「ユーザースクリプトの更新を確認」）

@@ -33,3 +33,11 @@ UPDATE_SOURCE=https://raw.githubusercontent.com/torusanada917-stack/sanakuri-pri
 
 # 起動時に加えて、何時間ごとに更新を確認するか
 UPDATE_HOURS=6
+
+# ---- 会計PDFの直接送信（プリンターが PDF を直接解釈できる機種向け。OKI B432dn は対応）----
+# PCでの変換を省いて PDF をそのままプリンターへ送る。用紙は PDF のページサイズ（会計はA5）で決まる。
+# 届かない時は自動で SumatraPDF 方式に戻る。止めたい時は DIRECT_IP=off
+DIRECT_IP=192.168.110.51
+DIRECT_PORT=9100
+# 直接送信するファイル名の先頭（カンマ区切り）。予約票（sanakuri_yoyaku_）はB5→A5縮小が必要なので含めない
+DIRECT_PREFIX=sanakuri_kaikei_
